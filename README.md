@@ -1,4 +1,4 @@
-# 📚 Flourish and Blotts Bookshop Management System
+# 📚 Bookshop Management System
 
 A sleek, modern, full-stack inventory application built with a modular decoupled architecture. This platform features dynamic search capabilities for public catalog browsers alongside a secure, role-based administration portal for managers to handle complete inventory control.
 
