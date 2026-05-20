@@ -4,7 +4,6 @@ from psycopg2.extras import RealDictCursor
 
 catalog_bp = Blueprint('catalog', __name__)
 
-# 1. READ ALL / SEARCH BOOKS
 @catalog_bp.route('/api/books', methods=['GET'])
 def get_books():
     search_query = request.args.get('search', '').strip()
@@ -13,14 +12,12 @@ def get_books():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
         if search_query:
             sql = "SELECT * FROM books WHERE title ILIKE %s OR author ILIKE %s ORDER BY book_id DESC;"
             formatted_search = f"%{search_query}%"
             cursor.execute(sql, (formatted_search, formatted_search))
         else:
             cursor.execute('SELECT * FROM books ORDER BY book_id DESC;')
-            
         books = cursor.fetchall()
         return jsonify({"status": "success", "data": books})
     except Exception as e:
@@ -29,7 +26,6 @@ def get_books():
         if cursor: cursor.close()
         if conn: conn.close()
 
-# 2. CREATE (ADD NEW BOOK) - Manager Only
 @catalog_bp.route('/api/books', methods=['POST'])
 def add_book():
     data = request.get_json()
@@ -37,6 +33,8 @@ def add_book():
     author = data.get('author')
     price = data.get('price')
     stock_count = data.get('stock_count')
+    description = data.get('description', '')
+    image_url = data.get('image_url', '')
 
     if not title or not author or price is None or stock_count is None:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -47,10 +45,10 @@ def add_book():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         sql = """
-            INSERT INTO books (title, author, price, stock_count) 
-            VALUES (%s, %s, %s, %s) RETURNING *;
+            INSERT INTO books (title, author, price, stock_count, description, image_url) 
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING *;
         """
-        cursor.execute(sql, (title, author, price, stock_count))
+        cursor.execute(sql, (title, author, price, stock_count, description, image_url))
         new_book = cursor.fetchone()
         conn.commit()
         return jsonify({"status": "success", "data": new_book}), 201
@@ -60,7 +58,6 @@ def add_book():
         if cursor: cursor.close()
         if conn: conn.close()
 
-# 3. UPDATE (EDIT EXISTING BOOK) - Manager Only
 @catalog_bp.route('/api/books/<int:book_id>', methods=['PUT'])
 def update_book(book_id):
     data = request.get_json()
@@ -68,6 +65,8 @@ def update_book(book_id):
     author = data.get('author')
     price = data.get('price')
     stock_count = data.get('stock_count')
+    description = data.get('description')
+    image_url = data.get('image_url')
 
     conn = None
     cursor = None
@@ -76,16 +75,12 @@ def update_book(book_id):
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         sql = """
             UPDATE books 
-            SET title = %s, author = %s, price = %s, stock_count = %s 
+            SET title = %s, author = %s, price = %s, stock_count = %s, description = %s, image_url = %s 
             WHERE book_id = %s RETURNING *;
         """
-        cursor.execute(sql, (title, author, price, stock_count, book_id))
+        cursor.execute(sql, (title, author, price, stock_count, description, image_url, book_id))
         updated_book = cursor.fetchone()
         conn.commit()
-        
-        if not updated_book:
-            return jsonify({"status": "error", "message": "Book not found"}), 404
-            
         return jsonify({"status": "success", "data": updated_book})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -93,7 +88,6 @@ def update_book(book_id):
         if cursor: cursor.close()
         if conn: conn.close()
 
-# 4. DELETE (REMOVE BOOK) - Manager Only
 @catalog_bp.route('/api/books/<int:book_id>', methods=['DELETE'])
 def delete_book(book_id):
     conn = None
@@ -103,7 +97,7 @@ def delete_book(book_id):
         cursor = conn.cursor()
         cursor.execute('DELETE FROM books WHERE book_id = %s;', (book_id,))
         conn.commit()
-        return jsonify({"status": "success", "message": "Book deleted successfully"})
+        return jsonify({"status": "success", "message": "Deleted"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
